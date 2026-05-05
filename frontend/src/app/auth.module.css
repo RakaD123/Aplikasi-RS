@@ -1,0 +1,241 @@
+/* ====== Auth Pages Shared Styles ====== */
+
+.authPage {
+  min-height: 100vh;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  padding-top: 70px;
+}
+
+/* Left Panel */
+.authLeft {
+  background: var(--gradient-hero);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-12);
+  position: relative;
+  overflow: hidden;
+}
+
+.authLeft::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image:
+    radial-gradient(circle at 30% 70%, rgba(7, 196, 175, 0.2) 0%, transparent 50%),
+    radial-gradient(circle at 70% 30%, rgba(59, 92, 248, 0.15) 0%, transparent 50%);
+}
+
+.authLeftContent {
+  position: relative;
+  z-index: 1;
+  text-align: center;
+  max-width: 400px;
+}
+
+.authIcon {
+  color: var(--accent-400);
+  fill: var(--accent-400);
+  margin-bottom: var(--space-6);
+}
+
+.authLeftTitle {
+  font-family: var(--font-heading);
+  font-size: var(--text-3xl);
+  font-weight: 800;
+  color: white;
+  margin-bottom: var(--space-4);
+}
+
+.authLeftDesc {
+  font-size: var(--text-base);
+  color: rgba(255, 255, 255, 0.7);
+  line-height: var(--leading-relaxed);
+  margin-bottom: var(--space-8);
+}
+
+.authFeatures {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  align-items: center;
+}
+
+.authFeature {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  color: rgba(255, 255, 255, 0.8);
+  font-size: var(--text-sm);
+}
+
+/* Right Panel */
+.authRight {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-12);
+  background: var(--bg-primary);
+}
+
+.authForm {
+  width: 100%;
+  max-width: 420px;
+  animation: fadeIn 0.5s ease-out;
+}
+
+.authHeader {
+  margin-bottom: var(--space-8);
+}
+
+.authTitle {
+  font-family: var(--font-heading);
+  font-size: var(--text-2xl);
+  font-weight: 800;
+  margin-bottom: var(--space-2);
+}
+
+.authSubtitle {
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+}
+
+/* Form */
+.formFields {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+}
+
+.formOptions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.checkbox {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+
+.checkbox input {
+  accent-color: var(--primary-500);
+}
+
+.forgotLink {
+  font-size: var(--text-sm);
+  color: var(--primary-600);
+  font-weight: 500;
+  transition: color var(--transition-fast);
+}
+
+.forgotLink:hover {
+  color: var(--primary-700);
+}
+
+/* Switch */
+.authSwitch {
+  text-align: center;
+  margin-top: var(--space-6);
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+}
+
+.authSwitchLink {
+  color: var(--primary-600);
+  font-weight: 600;
+  transition: color var(--transition-fast);
+}
+
+.authSwitchLink:hover {
+  color: var(--primary-700);
+}
+
+/* OTP */
+.otpWrapper {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+  align-items: center;
+}
+
+.otpActions {
+  display: flex;
+  gap: var(--space-4);
+}
+
+/* Step Indicator */
+.stepIndicator {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-4);
+  margin-bottom: var(--space-8);
+}
+
+.stepDot {
+  width: 36px;
+  height: 36px;
+  border-radius: var(--radius-full);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: var(--text-sm);
+  font-weight: 700;
+  background: var(--gray-100);
+  color: var(--text-tertiary);
+  transition: all var(--transition-base);
+  position: relative;
+}
+
+.stepDot:not(:last-child)::after {
+  content: '';
+  position: absolute;
+  left: 100%;
+  top: 50%;
+  width: var(--space-4);
+  height: 2px;
+  background: var(--gray-200);
+  transform: translateX(0) translateY(-50%);
+}
+
+.stepActive {
+  background: var(--gradient-primary);
+  color: white;
+}
+
+.stepActive::after {
+  background: var(--primary-300) !important;
+}
+
+/* Button group */
+.formButtonGroup {
+  display: flex;
+  gap: var(--space-3);
+}
+
+/* Animations */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .authPage {
+    grid-template-columns: 1fr;
+  }
+
+  .authLeft {
+    display: none;
+  }
+
+  .authRight {
+    padding: var(--space-6);
+  }
+}

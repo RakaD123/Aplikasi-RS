@@ -1,0 +1,19 @@
+.page { padding-top: 80px; min-height: 100vh; }
+.container { max-width: 1280px; margin: 0 auto; padding: 0 var(--space-6); }
+.header { padding: var(--space-12) 0 var(--space-8); background: var(--bg-secondary); border-bottom: 1px solid var(--border-light); }
+.title { font-size: var(--text-3xl); font-weight: 800; margin-bottom: var(--space-2); background: var(--gradient-primary); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+.subtitle { font-size: var(--text-lg); color: var(--text-secondary); }
+.content { padding: var(--space-10) 0 var(--space-16); }
+.grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: var(--space-6); }
+.card { border-radius: var(--radius-xl); overflow: hidden; background: var(--surface-card); border: 1px solid var(--border-light); transition: all var(--transition-base); }
+.card:hover { transform: translateY(-4px); box-shadow: var(--shadow-xl); }
+.cardImage { position: relative; height: 200px; }
+.imagePlaceholder { width: 100%; height: 100%; background: var(--gradient-hero); display: flex; flex-direction: column; align-items: center; justify-content: center; color: white; gap: var(--space-3); }
+.discount { font-size: var(--text-3xl); font-weight: 800; font-family: var(--font-heading); }
+.daysBadge { position: absolute; top: var(--space-3); right: var(--space-3); }
+.cardBody { padding: var(--space-6); display: flex; flex-direction: column; gap: var(--space-4); }
+.cardTitle { font-size: var(--text-xl); font-weight: 700; }
+.cardDesc { font-size: var(--text-sm); color: var(--text-secondary); line-height: var(--leading-relaxed); }
+.validity { display: flex; align-items: center; gap: var(--space-2); font-size: var(--text-sm); color: var(--text-tertiary); }
+.code { padding: var(--space-3); text-align: center; border-radius: var(--radius-md); background: var(--gray-100); font-family: var(--font-mono); font-weight: 700; font-size: var(--text-lg); color: var(--primary-600); border: 2px dashed var(--primary-300); letter-spacing: 2px; }
+@media (max-width: 768px) { .grid { grid-template-columns: 1fr; } }

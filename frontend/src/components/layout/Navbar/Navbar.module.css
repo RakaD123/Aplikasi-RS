@@ -1,0 +1,305 @@
+.navbar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: var(--z-sticky);
+  background: transparent;
+  transition: all var(--transition-base);
+  padding: var(--space-4) 0;
+}
+
+.navbar.scrolled {
+  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-bottom: 1px solid var(--border-light);
+  padding: var(--space-2) 0;
+  box-shadow: var(--shadow-sm);
+}
+
+:global([data-theme="dark"]) .navbar.scrolled {
+  background: rgba(10, 14, 26, 0.85);
+}
+
+.container {
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 0 var(--space-6);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-8);
+}
+
+/* Logo */
+.logo {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  text-decoration: none;
+  flex-shrink: 0;
+}
+
+.logoIcon {
+  color: var(--accent-500);
+  fill: var(--accent-500);
+}
+
+.logoText {
+  font-family: var(--font-heading);
+  font-size: var(--text-xl);
+  font-weight: 800;
+  color: var(--text-primary);
+}
+
+.logoAccent {
+  background: var(--gradient-accent);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* Desktop Nav */
+.desktopNav {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+.navLink {
+  padding: var(--space-2) var(--space-4);
+  border-radius: var(--radius-md);
+  font-size: var(--text-sm);
+  font-weight: 500;
+  color: var(--text-secondary);
+  transition: all var(--transition-fast);
+  position: relative;
+}
+
+.navLink:hover {
+  color: var(--text-primary);
+  background: var(--gray-100);
+}
+
+:global([data-theme="dark"]) .navLink:hover {
+  background: var(--gray-800);
+}
+
+.navLink.active {
+  color: var(--primary-600);
+  font-weight: 600;
+}
+
+.navLink.active::after {
+  content: '';
+  position: absolute;
+  bottom: -2px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 20px;
+  height: 3px;
+  background: var(--gradient-accent);
+  border-radius: var(--radius-full);
+}
+
+/* Actions */
+.actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.iconButton {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: var(--radius-md);
+  color: var(--text-secondary);
+  transition: all var(--transition-fast);
+  cursor: pointer;
+  background: none;
+  border: none;
+}
+
+.iconButton:hover {
+  background: var(--gray-100);
+  color: var(--text-primary);
+}
+
+:global([data-theme="dark"]) .iconButton:hover {
+  background: var(--gray-800);
+}
+
+/* Dropdown */
+.dropdown {
+  position: relative;
+}
+
+.dropdownMenu {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  min-width: 200px;
+  background: var(--surface-elevated);
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-xl);
+  padding: var(--space-2);
+  animation: fadeIn 0.2s ease-out;
+  z-index: var(--z-dropdown);
+}
+
+.dropdownItem {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  width: 100%;
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-md);
+  font-size: var(--text-sm);
+  font-weight: 500;
+  color: var(--text-secondary);
+  transition: all var(--transition-fast);
+  cursor: pointer;
+  background: none;
+  border: none;
+  text-decoration: none;
+}
+
+.dropdownItem:hover {
+  background: var(--gray-100);
+  color: var(--text-primary);
+}
+
+:global([data-theme="dark"]) .dropdownItem:hover {
+  background: var(--gray-800);
+}
+
+.dropdownItem.activeItem {
+  color: var(--primary-600);
+  background: var(--primary-50);
+}
+
+.dropdownItem.danger {
+  color: var(--danger-600);
+}
+
+.dropdownItem.danger:hover {
+  background: var(--danger-50);
+}
+
+.dropdownDivider {
+  height: 1px;
+  background: var(--border-light);
+  margin: var(--space-2) 0;
+}
+
+/* User Button */
+.userButton {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-full);
+  cursor: pointer;
+  background: var(--gray-100);
+  border: none;
+  transition: all var(--transition-fast);
+}
+
+:global([data-theme="dark"]) .userButton {
+  background: var(--gray-800);
+}
+
+.userButton:hover {
+  background: var(--gray-200);
+}
+
+.avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-full);
+  background: var(--gradient-primary);
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: var(--text-sm);
+}
+
+.userName {
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.authButtons {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+/* Mobile */
+.mobileToggle {
+  display: none;
+}
+
+.mobileNav {
+  display: none;
+  flex-direction: column;
+  padding: var(--space-4) var(--space-6);
+  gap: var(--space-1);
+  background: var(--surface-elevated);
+  border-top: 1px solid var(--border-light);
+  max-height: 0;
+  overflow: hidden;
+  transition: max-height var(--transition-slow);
+}
+
+.mobileNav.mobileOpen {
+  max-height: 400px;
+}
+
+.mobileLink {
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-md);
+  font-size: var(--text-base);
+  font-weight: 500;
+  color: var(--text-secondary);
+  transition: all var(--transition-fast);
+}
+
+.mobileLink:hover, .mobileLink.active {
+  color: var(--primary-600);
+  background: var(--primary-50);
+}
+
+.mobileAuth {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--border-light);
+  margin-top: var(--space-3);
+}
+
+.mobileAuth a {
+  width: 100%;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(-8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@media (max-width: 768px) {
+  .desktopNav { display: none; }
+  .authButtons { display: none; }
+  .mobileToggle { display: flex; }
+  .mobileNav { display: flex; }
+  .userName { display: none; }
+}
