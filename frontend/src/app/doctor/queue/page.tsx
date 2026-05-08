@@ -45,7 +45,11 @@ export default function QueuePage() {
         <div className={styles.header} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <div>
             <h1 className={styles.greeting}>{d.patientQueue}</h1>
-            <p className={styles.greetingSub}>{queue.filter(q => q.status === 'waiting').length} {d.waiting}</p>
+            <p className={styles.greetingSub}>
+              {new Date(data?.date || new Date()).toLocaleDateString('id-ID', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
+              {' · '}
+              {queue.filter((q: any) => q.status === 'waiting').length} {d.waiting}
+            </p>
           </div>
           <Button variant="accent" onClick={callNext} icon={<ArrowRight size={16} />}>{d.callNext}</Button>
         </div>
@@ -77,6 +81,13 @@ export default function QueuePage() {
                 </span>
               </div>
             ))}
+            {filtered.length === 0 && (
+              <div style={{ padding: 'var(--space-10)', textAlign: 'center', color: 'var(--text-tertiary)' }}>
+                <AlertCircle size={40} style={{ marginBottom: 'var(--space-4)', opacity: 0.2 }} />
+                <p>Tidak ada antrean pasien untuk tanggal ini.</p>
+                <p style={{ fontSize: 'var(--text-xs)', marginTop: 'var(--space-2)' }}>Pastikan jadwal pasien sudah sesuai dengan tanggal hari ini.</p>
+              </div>
+            )}
           </div>
         </div>
       </div>

@@ -56,23 +56,39 @@ export default function BookingPage() {
         doctor_id: doctor.id,
         schedule_id: selectedSlotData?.id,
         appointment_time: appointmentTime.toISOString(),
-        complaint: 'Routine checkup',
+        complaint: 'Konsultasi',
       });
-      const bookingId = bookRes.data.booking.id;
+      const booking = bookRes.data.booking;
+      setBookingResult(booking);
 
-      // 3. Process payment (simulated)
-      let method = 'virtual_account';
-      if (paymentMethod === 'ewallet') method = 'ewallet';
-      if (paymentMethod === 'cc') method = 'credit_card';
+      // 3. Process payment via Midtrans
+      const payRes = await api.post(`/patient/bookings/${booking.id}/pay`);
+      const snapToken = payRes.data.snap_token;
 
-      const payRes = await api.post(`/patient/bookings/${bookingId}/pay`, {
-        payment_method: method
-      });
-
-      setBookingResult(payRes.data.booking);
-      setStep(4);
+      if (snapToken && (window as any).snap) {
+        (window as any).snap.pay(snapToken, {
+          onSuccess: async function () {
+            await api.get(`/patient/bookings/${booking.id}/check-status`);
+            setStep(4);
+          },
+          onPending: async function () {
+            await api.get(`/patient/bookings/${booking.id}/check-status`);
+            setStep(4);
+          },
+          onError: function () {
+            alert('Pembayaran gagal.');
+            setStep(4);
+          },
+          onClose: function () {
+            setStep(4);
+          }
+        });
+      } else {
+        alert('Midtrans Snap tidak tersedia.');
+        setStep(4);
+      }
     } catch (err: any) {
-      alert(err.response?.data?.message || 'Failed to create booking');
+      alert(err.response?.data?.message + (err.response?.data?.error ? '\n' + err.response?.data?.error : ''));
     } finally {
       setLoading(false);
     }
@@ -143,14 +159,21 @@ export default function BookingPage() {
                 <div><div className={styles.listName}>{doctor.name}</div><div className={styles.listSub}>{doctor.specialization}</div></div>
               </div>
               <p style={{ fontSize: 'var(--text-sm)', fontWeight: 600, marginBottom: 'var(--space-3)', color: 'var(--text-secondary)' }}>{t.doctorSearch.availableSlots}</p>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 'var(--space-3)' }}>
-                {doctor.available_slots?.filter((s: any) => s.is_active).map((slot: any) => (
-                  <button key={slot.id} onClick={() => setSelectedSlot(slot.id)}
-                    style={{ padding: 'var(--space-3)', borderRadius: 'var(--radius-md)', border: selectedSlot === slot.id ? '2px solid var(--primary-500)' : '1px solid var(--border-light)', background: selectedSlot === slot.id ? 'var(--primary-50)' : 'var(--bg-primary)', cursor: 'pointer', textAlign: 'center', fontSize: 'var(--text-sm)', fontWeight: 600, color: selectedSlot === slot.id ? 'var(--primary-600)' : 'var(--text-secondary)' }}>
-                    <div style={{ fontSize: 'var(--text-xs)', color: 'var(--text-tertiary)', marginBottom: 4 }}>{slot.day_of_week}</div>
-                    {slot.start_time.substring(0, 5)} - {slot.end_time.substring(0, 5)}
-                  </button>
-                ))}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 'var(--space-3)' }}>
+                {doctor.available_slots?.filter((s: any) => s.is_active).length > 0 ? (
+                  doctor.available_slots.filter((s: any) => s.is_active).map((slot: any) => (
+                    <button key={slot.id} onClick={() => setSelectedSlot(slot.id)}
+                      style={{ padding: 'var(--space-3)', borderRadius: 'var(--radius-md)', border: selectedSlot === slot.id ? '2px solid var(--primary-500)' : '1px solid var(--border-light)', background: selectedSlot === slot.id ? 'var(--primary-50)' : 'var(--bg-primary)', cursor: 'pointer', textAlign: 'center', fontSize: 'var(--text-sm)', fontWeight: 600, color: selectedSlot === slot.id ? 'var(--primary-600)' : 'var(--text-secondary)' }}>
+                      <div style={{ fontSize: 'var(--text-xs)', color: 'var(--text-tertiary)', marginBottom: 4 }}>{slot.day_of_week}</div>
+                      {slot.start_time.substring(0, 5)} - {slot.end_time.substring(0, 5)}
+                    </button>
+                  ))
+                ) : (
+                  <div style={{ gridColumn: '1 / -1', textAlign: 'center', padding: 'var(--space-8)', background: 'var(--gray-50)', borderRadius: 'var(--radius-lg)', border: '1px dashed var(--gray-200)' }}>
+                    <CalendarIcon size={32} style={{ color: 'var(--text-tertiary)', marginBottom: 'var(--space-2)' }} />
+                    <p style={{ color: 'var(--text-tertiary)', fontSize: 'var(--text-sm)' }}>Dokter belum mengatur jadwal atau belum memposting jadwal praktek.</p>
+                  </div>
+                )}
               </div>
             </div>
             <div style={{ padding: 'var(--space-4) var(--space-5)', borderTop: '1px solid var(--border-light)', display: 'flex', justifyContent: 'space-between' }}>
@@ -163,30 +186,19 @@ export default function BookingPage() {
         {/* Step 3: Payment */}
         {step === 3 && (
           <div className={styles.card}>
-            <div className={styles.cardHeader}><h3 className={styles.cardTitle}>{d.payment}</h3></div>
+            <div className={styles.cardHeader}><h3 className={styles.cardTitle}>Detail Tagihan</h3></div>
             <div className={styles.cardBody}>
               <div style={{ background: 'var(--bg-secondary)', padding: 'var(--space-5)', borderRadius: 'var(--radius-lg)', marginBottom: 'var(--space-6)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <span style={{ fontWeight: 600 }}>{d.amount}</span>
                 <span style={{ fontSize: 'var(--text-2xl)', fontWeight: 800, fontFamily: 'var(--font-heading)', color: 'var(--primary-600)' }}>{doctor ? formatCurrency(doctor.consultation_fee || 0) : 'Rp 0'}</span>
               </div>
-              <p style={{ fontSize: 'var(--text-sm)', fontWeight: 600, marginBottom: 'var(--space-4)', color: 'var(--text-secondary)' }}>{d.paymentMethod}</p>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
-                {[
-                  { id: 'va', icon: <Building size={20} />, label: d.virtualAccount, desc: 'BCA, BNI, BRI, Mandiri' },
-                  { id: 'ewallet', icon: <Wallet size={20} />, label: d.eWallet, desc: 'GoPay, OVO, DANA, ShopeePay' },
-                  { id: 'cc', icon: <CreditCard size={20} />, label: d.creditCard, desc: 'Visa, Mastercard' },
-                ].map(method => (
-                  <button key={method.id} onClick={() => setPaymentMethod(method.id)}
-                    style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-4)', padding: 'var(--space-4)', borderRadius: 'var(--radius-lg)', border: paymentMethod === method.id ? '2px solid var(--primary-500)' : '1px solid var(--border-light)', background: paymentMethod === method.id ? 'var(--primary-50)' : 'var(--bg-primary)', cursor: 'pointer', textAlign: 'left', width: '100%' }}>
-                    <div style={{ color: paymentMethod === method.id ? 'var(--primary-500)' : 'var(--text-tertiary)' }}>{method.icon}</div>
-                    <div><div style={{ fontWeight: 600, fontSize: 'var(--text-sm)' }}>{method.label}</div><div style={{ fontSize: 'var(--text-xs)', color: 'var(--text-tertiary)' }}>{method.desc}</div></div>
-                  </button>
-                ))}
-              </div>
+              <p style={{ fontSize: 'var(--text-sm)', color: 'var(--text-secondary)' }}>
+                Klik tombol di bawah ini untuk melanjutkan pembayaran secara aman melalui Midtrans. Anda dapat memilih berbagai metode pembayaran (GoPay, Virtual Account BCA, Mandiri, QRIS, dll) pada jendela pop-up yang muncul.
+              </p>
             </div>
             <div style={{ padding: 'var(--space-4) var(--space-5)', borderTop: '1px solid var(--border-light)', display: 'flex', justifyContent: 'space-between' }}>
               <Button variant="ghost" onClick={() => setStep(2)}>{t.auth.back}</Button>
-              <Button variant="accent" disabled={!paymentMethod} loading={loading} onClick={handleCreateBooking}>{d.payNow}</Button>
+              <Button variant="accent" loading={loading} onClick={handleCreateBooking}>Lanjutkan Pembayaran</Button>
             </div>
           </div>
         )}

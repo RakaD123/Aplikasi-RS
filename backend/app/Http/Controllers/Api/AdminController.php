@@ -17,13 +17,32 @@ class AdminController extends Controller
 {
     // ---- DASHBOARD ----
 
-    public function stats(): JsonResponse
+    public function stats(Request $request): JsonResponse
     {
+        $startDate = $request->query('start_date', now()->subDays(30)->toDateString());
+        $endDate = $request->query('end_date', now()->toDateString());
+
+        $revenueDaily = Booking::where('payment_status', 'paid')
+            ->whereDate('created_at', '>=', $startDate)
+            ->whereDate('created_at', '<=', $endDate)
+            ->selectRaw('DATE(created_at) as date, SUM(amount) as total')
+            ->groupBy('date')
+            ->orderBy('date')
+            ->get();
+
         return response()->json([
             'total_users' => User::where('role', 'patient')->count(),
             'total_doctors' => Doctor::where('is_active', true)->count(),
-            'total_revenue' => Booking::where('payment_status', 'paid')->sum('amount'),
-            'active_bookings' => Booking::whereIn('booking_status', ['pending', 'confirmed', 'in_progress'])->count(),
+            'total_revenue' => (float) Booking::where('payment_status', 'paid')->sum('amount'),
+            'filtered_revenue' => (float) Booking::where('payment_status', 'paid')
+                ->whereDate('created_at', '>=', $startDate)
+                ->whereDate('created_at', '<=', $endDate)
+                ->sum('amount'),
+            'active_bookings' => Booking::whereIn('booking_status', ['pending', 'confirmed', 'in_progress'])
+                ->whereDate('created_at', '>=', $startDate)
+                ->whereDate('created_at', '<=', $endDate)
+                ->count(),
+            'revenue_daily' => $revenueDaily,
             'recent_bookings' => Booking::with(['patient', 'doctor.user'])
                 ->latest()->take(5)->get(),
             'recent_users' => User::where('role', 'patient')->latest()->take(5)->get(),
@@ -92,11 +111,12 @@ class AdminController extends Controller
         return response()->json(['doctor' => $doctor->fresh()->load('user')]);
     }
 
-    public function deleteDoctor(Doctor $doctor): JsonResponse
+    public function toggleDoctor(Doctor $doctor): JsonResponse
     {
-        $doctor->user->update(['is_active' => false]);
-        $doctor->update(['is_active' => false]);
-        return response()->json(['message' => 'Doctor deactivated']);
+        $newStatus = !$doctor->is_active;
+        $doctor->user->update(['is_active' => $newStatus]);
+        $doctor->update(['is_active' => $newStatus]);
+        return response()->json(['message' => 'Doctor status updated', 'is_active' => $newStatus]);
     }
 
     // ---- USERS ----
@@ -127,11 +147,49 @@ class AdminController extends Controller
     {
         $query = Booking::with(['patient', 'doctor.user']);
         if ($request->filled('status')) $query->where('payment_status', $request->status);
+        if ($request->filled('start_date')) $query->whereDate('created_at', '>=', $request->start_date);
+        if ($request->filled('end_date')) $query->whereDate('created_at', '<=', $request->end_date);
         if ($request->filled('search')) {
-            $query->whereHas('patient', fn($q) => $q->where('full_name', 'ilike', "%{$request->search}%"))
+            $query->where(function($q) use ($request) {
+                $q->whereHas('patient', fn($pq) => $pq->where('full_name', 'ilike', "%{$request->search}%"))
                   ->orWhere('booking_code', 'like', "%{$request->search}%");
+            });
         }
-        return response()->json($query->latest()->paginate(15));
+
+        $sortBy = $request->query('sort_by', 'created_at');
+        $order = $request->query('order', 'desc');
+        
+        $allowedSorts = ['created_at', 'amount', 'appointment_time', 'booking_code'];
+        if (in_array($sortBy, $allowedSorts)) {
+            $query->orderBy($sortBy, $order);
+        } else {
+            $query->latest();
+        }
+
+        return response()->json($query->paginate(15));
+    }
+
+    public function doctorRevenue(): JsonResponse
+    {
+        $stats = Doctor::with('user')
+            ->get()
+            ->map(function ($doctor) {
+                $paidBookings = Booking::where('doctor_id', $doctor->id)
+                    ->where('payment_status', 'paid');
+                
+                return [
+                    'id' => $doctor->id,
+                    'name' => 'dr. ' . $doctor->user->full_name,
+                    'specialization' => $doctor->specialization,
+                    'revenue' => (float) $paidBookings->sum('amount'),
+                    'transaction_count' => $paidBookings->count(),
+                    'avatar' => $doctor->user->avatar,
+                ];
+            })
+            ->sortByDesc('revenue')
+            ->values();
+
+        return response()->json(['doctors' => $stats]);
     }
 
     // ---- ARTICLES ----
@@ -196,6 +254,12 @@ class AdminController extends Controller
         ]);
 
         return response()->json(['promo' => $promo], 201);
+    }
+
+    public function updatePromo(Request $request, Promo $promo): JsonResponse
+    {
+        $promo->update($request->only(['title', 'description', 'code', 'discount_percentage', 'max_discount_amount', 'valid_from', 'valid_until', 'max_usage']));
+        return response()->json(['promo' => $promo]);
     }
 
     public function deletePromo(Promo $promo): JsonResponse

@@ -9,6 +9,7 @@ import Input from '@/components/ui/Input/Input';
 import { Search, Edit2, Trash2, Download, ShieldAlert, ShieldCheck } from 'lucide-react';
 import { getInitials } from '@/lib/utils';
 import { api } from '@/lib/api';
+import ConfirmModal from '@/components/ui/Modal/ConfirmModal';
 
 const fetcher = (url: string) => api.get(url).then((res) => res.data);
 
@@ -23,13 +24,29 @@ export default function AdminUsersPage() {
     fetcher
   );
   const users = data?.data || [];
+  
+  const [confirmState, setConfirmState] = useState<{isOpen: boolean, userId: string, status: boolean, name: string}>({
+    isOpen: false,
+    userId: '',
+    status: false,
+    name: ''
+  });
+  const [isUpdating, setIsUpdating] = useState(false);
 
-  const handleToggleStatus = async (userId: string) => {
+  const handleToggleStatus = async (userId: string, currentStatus: boolean, name: string) => {
+    setConfirmState({ isOpen: true, userId, status: currentStatus, name });
+  };
+
+  const executeToggle = async () => {
+    setIsUpdating(true);
     try {
-      await api.put(`/admin/users/${userId}/toggle`);
-      mutate(); // Refresh the list
+      await api.put(`/admin/users/${confirmState.userId}/toggle`);
+      mutate();
+      setConfirmState({ ...confirmState, isOpen: false });
     } catch (err: any) {
       alert(err.response?.data?.message || 'Failed to update user status');
+    } finally {
+      setIsUpdating(false);
     }
   };
 
@@ -69,7 +86,7 @@ export default function AdminUsersPage() {
                       <td><span className={`${styles.badge} ${u.is_active ? styles.badgeSuccess : styles.badgeDanger}`}>{u.is_active ? d.active : d.inactive}</span></td>
                       <td>
                         <div style={{ display: 'flex', gap: 'var(--space-2)' }}>
-                          <Button variant="ghost" size="sm" icon={u.is_active ? <ShieldAlert size={14} color="var(--danger-500)" /> : <ShieldCheck size={14} color="var(--success-500)" />} onClick={() => handleToggleStatus(u.id)} title={u.is_active ? 'Deactivate' : 'Activate'} />
+                          <Button variant="ghost" size="sm" icon={u.is_active ? <ShieldAlert size={14} color="var(--danger-500)" /> : <ShieldCheck size={14} color="var(--success-500)" />} onClick={() => handleToggleStatus(u.id, u.is_active, u.full_name)} title={u.is_active ? 'Deactivate' : 'Activate'} />
                         </div>
                       </td>
                     </tr>
@@ -82,6 +99,17 @@ export default function AdminUsersPage() {
             )}
           </div>
         </div>
+
+        <ConfirmModal 
+          isOpen={confirmState.isOpen}
+          onClose={() => setConfirmState({...confirmState, isOpen: false})}
+          onConfirm={executeToggle}
+          loading={isUpdating}
+          title="Konfirmasi Perubahan Status"
+          message={`Are you sure? Anda yakin ingin ${confirmState.status ? 'menonaktifkan' : 'mengaktifkan'} akun ${confirmState.name}?`}
+          confirmText={confirmState.status ? 'Nonaktifkan' : 'Aktifkan'}
+          type={confirmState.status ? 'danger' : 'info'}
+        />
       </div>
     </DashboardLayout>
   );

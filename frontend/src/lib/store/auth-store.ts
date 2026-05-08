@@ -20,8 +20,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   isLoading: true,
   setUser: (user, token) => {
     if (typeof window !== 'undefined') {
-      localStorage.setItem('rs-token', token);
-      localStorage.setItem('rs-user', JSON.stringify(user));
+      sessionStorage.setItem('rs-token', token);
+      sessionStorage.setItem('rs-user', JSON.stringify(user));
     }
     set({ user, token, isAuthenticated: true, isLoading: false });
   },
@@ -33,8 +33,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       }
     } finally {
       if (typeof window !== 'undefined') {
-        localStorage.removeItem('rs-token');
-        localStorage.removeItem('rs-user');
+        sessionStorage.removeItem('rs-token');
+        sessionStorage.removeItem('rs-user');
       }
       set({ user: null, token: null, isAuthenticated: false, isLoading: false });
     }
@@ -43,7 +43,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   fetchMe: async () => {
     if (typeof window === 'undefined') return;
     
-    const token = localStorage.getItem('rs-token');
+    const token = sessionStorage.getItem('rs-token');
     if (!token) {
       set({ isLoading: false });
       return;
@@ -58,11 +58,11 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   },
 }));
 
-// Initialize from localStorage and validate with backend
+// Initialize from sessionStorage and validate with backend
 if (typeof window !== 'undefined') {
-  // First synchronously set from local storage to prevent flicker
-  const token = localStorage.getItem('rs-token');
-  const userStr = localStorage.getItem('rs-user');
+  // First synchronously set from session storage to prevent flicker
+  const token = sessionStorage.getItem('rs-token');
+  const userStr = sessionStorage.getItem('rs-user');
   if (token && userStr) {
     try {
       const user = JSON.parse(userStr);

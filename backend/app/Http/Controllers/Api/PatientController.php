@@ -69,7 +69,8 @@ class PatientController extends Controller
 
     public function cancelBooking(Request $request, Booking $booking): JsonResponse
     {
-        if ($booking->patient_id !== $request->user()->id) abort(403, 'Unauthorized access.');
+        if ($booking->patient_id !== $request->user()->id)
+            abort(403, 'Unauthorized access.');
 
         if ($booking->payment_status === 'paid') {
             return response()->json(['message' => 'Booking yang sudah dibayar tidak bisa dibatalkan.'], 422);
@@ -85,7 +86,8 @@ class PatientController extends Controller
 
     public function getBooking(Request $request, Booking $booking): JsonResponse
     {
-        if ($booking->patient_id !== $request->user()->id) abort(403, 'Unauthorized access.');
+        if ($booking->patient_id !== $request->user()->id)
+            abort(403, 'Unauthorized access.');
         return response()->json(['booking' => $booking->load(['doctor.user', 'consultation'])]);
     }
 
@@ -93,34 +95,94 @@ class PatientController extends Controller
 
     public function initiatePayment(Request $request, Booking $booking): JsonResponse
     {
+        if ($booking->patient_id !== $request->user()->id)
+            abort(403, 'Unauthorized access.');
+
+        // Initialize Midtrans configuration
+        \Midtrans\Config::$serverKey = config('midtrans.server_key');
+        \Midtrans\Config::$isProduction = config('midtrans.is_production');
+        \Midtrans\Config::$isSanitized = true;
+        \Midtrans\Config::$is3ds = true;
+
+        $orderId = 'BK-' . $booking->booking_code . '-' . time();
+
+        $params = [
+            'transaction_details' => [
+                'order_id' => $orderId,
+                'gross_amount' => (int) $booking->doctor->consultation_fee,
+            ],
+            'customer_details' => [
+                'first_name' => $request->user()->full_name,
+                'email' => $request->user()->email,
+                'phone' => $request->user()->phone_number,
+            ],
+        ];
+
+        try {
+            $snapToken = \Midtrans\Snap::getSnapToken($params);
+
+            $booking->update([
+                'midtrans_order_id' => $orderId,
+                'amount' => $booking->doctor->consultation_fee, // Ensure amount is set
+            ]);
+
+            return response()->json([
+                'message' => 'Payment initiated',
+                'snap_token' => $snapToken
+            ]);
+        } catch (\Exception $e) {
+            \Illuminate\Support\Facades\Log::error('Midtrans Snap Error: ' . $e->getMessage());
+            return response()->json([
+                'message' => 'Failed to generate Midtrans Snap token',
+                'error' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    public function checkPaymentStatus(Request $request, Booking $booking): JsonResponse
+    {
         if ($booking->patient_id !== $request->user()->id) abort(403, 'Unauthorized access.');
+        if (!$booking->midtrans_order_id) return response()->json(['message' => 'No Midtrans transaction found'], 404);
 
-        $request->validate(['payment_method' => 'required|in:virtual_account,ewallet,credit_card']);
+        \Midtrans\Config::$serverKey = config('midtrans.server_key');
+        \Midtrans\Config::$isProduction = config('midtrans.is_production');
 
-        // Simulate a successful payment
-        $booking->update([
-            'payment_method' => $request->payment_method,
-            'payment_status' => 'paid',
-            'booking_status' => 'confirmed',
-            'paid_at' => now(),
-            'amount' => $booking->doctor->consultation_fee,
-            'midtrans_order_id' => 'SIM-' . $booking->booking_code,
-        ]);
+        try {
+            $status = \Midtrans\Transaction::status($booking->midtrans_order_id);
+            $transactionStatus = $status->transaction_status;
+            $paymentType = $status->payment_type;
 
-        // Auto-create consultation so chat becomes available
-        \App\Models\Consultation::firstOrCreate(
-            ['booking_id' => $booking->id],
-            [
-                'patient_id' => $booking->patient_id,
-                'doctor_id' => $booking->doctor_id,
-                'status' => 'waiting',
-            ]
-        );
+            if ($transactionStatus == 'capture' || $transactionStatus == 'settlement') {
+                $booking->update([
+                    'payment_status' => 'paid',
+                    'booking_status' => 'confirmed',
+                    'paid_at' => now(),
+                    'payment_method' => $paymentType
+                ]);
 
-        return response()->json([
-            'message' => 'Payment processed successfully',
-            'booking' => $booking->fresh(),
-        ]);
+                // Auto-create consultation
+                \App\Models\Consultation::firstOrCreate(
+                    ['booking_id' => $booking->id],
+                    [
+                        'patient_id' => $booking->patient_id,
+                        'doctor_id' => $booking->doctor_id,
+                        'status' => 'waiting',
+                    ]
+                );
+            } else if ($transactionStatus == 'cancel' || $transactionStatus == 'deny' || $transactionStatus == 'expire') {
+                $booking->update([
+                    'payment_status' => 'failed',
+                    'booking_status' => 'cancelled'
+                ]);
+            }
+
+            return response()->json([
+                'message' => 'Status updated',
+                'booking' => $booking->fresh()->load('doctor.user')
+            ]);
+        } catch (\Exception $e) {
+            return response()->json(['message' => 'Error checking status', 'error' => $e->getMessage()], 500);
+        }
     }
 
     // ---- HEALTH LOGS ----
@@ -153,8 +215,10 @@ class PatientController extends Controller
 
         $trend = 'stable';
         if ($prev && is_numeric($prev->value) && is_numeric($request->value)) {
-            if ($request->value > $prev->value) $trend = 'up';
-            elseif ($request->value < $prev->value) $trend = 'down';
+            if ($request->value > $prev->value)
+                $trend = 'up';
+            elseif ($request->value < $prev->value)
+                $trend = 'down';
         }
 
         $log = HealthLog::create([
@@ -168,7 +232,8 @@ class PatientController extends Controller
 
     public function deleteHealthLog(Request $request, HealthLog $log): JsonResponse
     {
-        if ($log->user_id !== $request->user()->id) abort(403, 'Unauthorized access.');
+        if ($log->user_id !== $request->user()->id)
+            abort(403, 'Unauthorized access.');
         $log->delete();
         return response()->json(['message' => 'Log deleted']);
     }
@@ -202,14 +267,16 @@ class PatientController extends Controller
 
     public function updateReminder(Request $request, Reminder $reminder): JsonResponse
     {
-        if ($reminder->user_id !== $request->user()->id) abort(403, 'Unauthorized access.');
+        if ($reminder->user_id !== $request->user()->id)
+            abort(403, 'Unauthorized access.');
         $reminder->update($request->only(['title', 'type', 'frequency', 'scheduled_time', 'is_active']));
         return response()->json(['reminder' => $reminder]);
     }
 
     public function deleteReminder(Request $request, Reminder $reminder): JsonResponse
     {
-        if ($reminder->user_id !== $request->user()->id) abort(403, 'Unauthorized access.');
+        if ($reminder->user_id !== $request->user()->id)
+            abort(403, 'Unauthorized access.');
         $reminder->delete();
         return response()->json(['message' => 'Reminder deleted']);
     }
@@ -246,7 +313,8 @@ class PatientController extends Controller
 
     public function submitReview(Request $request, \App\Models\Booking $booking): JsonResponse
     {
-        if ($booking->patient_id !== $request->user()->id) abort(403, 'Unauthorized');
+        if ($booking->patient_id !== $request->user()->id)
+            abort(403, 'Unauthorized');
         if ($booking->booking_status !== 'completed') {
             return response()->json(['message' => 'Hanya bisa memberi rating untuk konsultasi yang sudah selesai.'], 422);
         }

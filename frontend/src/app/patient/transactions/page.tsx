@@ -8,7 +8,6 @@ import { formatCurrency, formatDate } from '@/lib/utils';
 import { Download, FileText, X, CreditCard, Building, Wallet, CheckCircle } from 'lucide-react';
 import { api } from '@/lib/api';
 import { useState } from 'react';
-import Modal from '@/components/ui/Modal/Modal';
 
 const fetcher = (url: string) => api.get(url).then((res) => res.data);
 
@@ -20,10 +19,8 @@ export default function TransactionsPage() {
   const { data, mutate } = useSWR('/patient/bookings', fetcher, { refreshInterval: 5000 });
   const bookings = data?.data || [];
 
-  const [payModalOpen, setPayModalOpen] = useState(false);
-  const [selectedBooking, setSelectedBooking] = useState<any>(null);
-  const [paymentMethod, setPaymentMethod] = useState<string>('va');
   const [loadingPay, setLoadingPay] = useState(false);
+  const [selectedBooking, setSelectedBooking] = useState<any>(null);
 
   // Derive transaction data from bookings
   const transactions = bookings.map((b: any, i: number) => ({
@@ -46,30 +43,41 @@ export default function TransactionsPage() {
     }
   };
 
-  const handleOpenPay = (booking: any) => {
-    setSelectedBooking(booking);
-    setPayModalOpen(true);
-  };
-
-  const handlePaySubmit = async () => {
-    if (!selectedBooking) return;
+  const handlePay = async (booking: any) => {
     setLoadingPay(true);
+    setSelectedBooking(booking);
     try {
-      let method = 'virtual_account';
-      if (paymentMethod === 'ewallet') method = 'ewallet';
-      if (paymentMethod === 'cc') method = 'credit_card';
-
-      await api.post(`/patient/bookings/${selectedBooking.bookingId}/pay`, {
-        payment_method: method
-      });
-
-      alert('Pembayaran berhasil!');
-      setPayModalOpen(false);
-      mutate();
+      const res = await api.post(`/patient/bookings/${booking.bookingId}/pay`);
+      const snapToken = res.data.snap_token;
+      
+      if (snapToken && (window as any).snap) {
+        (window as any).snap.pay(snapToken, {
+          onSuccess: async function (result: any) {
+            await api.get(`/patient/bookings/${booking.bookingId}/check-status`);
+            alert('Pembayaran berhasil!');
+            mutate();
+          },
+          onPending: async function (result: any) {
+            await api.get(`/patient/bookings/${booking.bookingId}/check-status`);
+            alert('Menunggu penyelesaian pembayaran!');
+            mutate();
+          },
+          onError: function (result: any) {
+            alert('Pembayaran gagal!');
+            mutate();
+          },
+          onClose: function () {
+            // Optional: User closed the popup before completing payment
+          }
+        });
+      } else {
+        alert('Gagal memuat Midtrans Snap UI.');
+      }
     } catch (err: any) {
-      alert(err.response?.data?.message || 'Pembayaran gagal. Silakan coba lagi.');
+      alert(err.response?.data?.message + (err.response?.data?.error ? '\n' + err.response?.data?.error : ''));
     } finally {
       setLoadingPay(false);
+      setSelectedBooking(null);
     }
   };
 
@@ -122,7 +130,7 @@ export default function TransactionsPage() {
                       <div style={{ display: 'flex', gap: 'var(--space-2)' }}>
                         {tx.paymentStatus === 'unpaid' && tx.bookingStatus !== 'cancelled' && (
                           <>
-                            <Button variant="primary" size="sm" icon={<CreditCard size={14} />} onClick={() => handleOpenPay(tx)}>Bayar</Button>
+                            <Button variant="primary" size="sm" icon={<CreditCard size={14} />} onClick={() => handlePay(tx)} loading={loadingPay && selectedBooking?.id === tx.id}>Bayar</Button>
                             <Button variant="ghost" size="sm" icon={<X size={14} />} onClick={() => handleCancel(tx.bookingId)} style={{ color: 'var(--danger-500)' }}>Batalkan</Button>
                           </>
                         )}
@@ -141,32 +149,6 @@ export default function TransactionsPage() {
           </div>
         </div>
       </div>
-
-      <Modal isOpen={payModalOpen} onClose={() => !loadingPay && setPayModalOpen(false)} title="Pembayaran Booking">
-        {selectedBooking && (
-          <div>
-            <div style={{ background: 'var(--bg-secondary)', padding: 'var(--space-4)', borderRadius: 'var(--radius-lg)', marginBottom: 'var(--space-6)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <span style={{ fontWeight: 600 }}>Total Tagihan</span>
-              <span style={{ fontSize: 'var(--text-xl)', fontWeight: 800, fontFamily: 'var(--font-heading)', color: 'var(--primary-600)' }}>{formatCurrency(selectedBooking.amount)}</span>
-            </div>
-            <p style={{ fontSize: 'var(--text-sm)', fontWeight: 600, marginBottom: 'var(--space-4)', color: 'var(--text-secondary)' }}>Metode Pembayaran</p>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)', marginBottom: 'var(--space-6)' }}>
-              {[
-                { id: 'va', icon: <Building size={20} />, label: d.virtualAccount, desc: 'BCA, BNI, BRI, Mandiri' },
-                { id: 'ewallet', icon: <Wallet size={20} />, label: d.eWallet, desc: 'GoPay, OVO, DANA, ShopeePay' },
-                { id: 'cc', icon: <CreditCard size={20} />, label: d.creditCard, desc: 'Visa, Mastercard' },
-              ].map(method => (
-                <button key={method.id} onClick={() => setPaymentMethod(method.id)}
-                  style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-4)', padding: 'var(--space-3) var(--space-4)', borderRadius: 'var(--radius-lg)', border: paymentMethod === method.id ? '2px solid var(--primary-500)' : '1px solid var(--border-light)', background: paymentMethod === method.id ? 'var(--primary-50)' : 'var(--bg-primary)', cursor: 'pointer', textAlign: 'left', width: '100%' }}>
-                  <div style={{ color: paymentMethod === method.id ? 'var(--primary-500)' : 'var(--text-tertiary)' }}>{method.icon}</div>
-                  <div><div style={{ fontWeight: 600, fontSize: 'var(--text-sm)' }}>{method.label}</div><div style={{ fontSize: 'var(--text-xs)', color: 'var(--text-tertiary)' }}>{method.desc}</div></div>
-                </button>
-              ))}
-            </div>
-            <Button variant="primary" fullWidth loading={loadingPay} onClick={handlePaySubmit}>Bayar Sekarang</Button>
-          </div>
-        )}
-      </Modal>
     </DashboardLayout>
   );
 }

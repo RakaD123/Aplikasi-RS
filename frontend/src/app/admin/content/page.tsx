@@ -10,6 +10,7 @@ import Input from '@/components/ui/Input/Input';
 import { formatDate, getDaysLeft } from '@/lib/utils';
 import { Plus, Edit2, Trash2, FileText, Sparkles } from 'lucide-react';
 import { api } from '@/lib/api';
+import ConfirmModal from '@/components/ui/Modal/ConfirmModal';
 
 const fetcher = (url: string) => api.get(url).then((res) => res.data);
 
@@ -26,23 +27,100 @@ export default function AdminContentPage() {
   const articles = articlesData?.data || [];
   const promos = promosData || [];
 
-  const handleDeleteArticle = async (id: string) => {
-    if (!confirm('Are you sure you want to delete this article?')) return;
+  const [deleteConfirm, setDeleteConfirm] = useState<{isOpen: boolean, id: string, title: string, type: 'article' | 'promo'}>({
+    isOpen: false, id: '', title: '', type: 'article'
+  });
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [saving, setSaving] = useState(false);
+
+  // Edit State
+  const [editItem, setEditItem] = useState<any>(null);
+  const [formData, setFormData] = useState({
+    title: '',
+    category: 'Kardiologi',
+    content: '',
+    code: '',
+    discount_percentage: '',
+    valid_from: new Date().toISOString().split('T')[0],
+    valid_until: '',
+    description: ''
+  });
+
+  const resetForm = () => {
+    setFormData({
+      title: '',
+      category: 'Kardiologi',
+      content: '',
+      code: '',
+      discount_percentage: '',
+      valid_from: new Date().toISOString().split('T')[0],
+      valid_until: '',
+      description: ''
+    });
+    setEditItem(null);
+  };
+
+  const openEdit = (item: any, type: 'article' | 'promo') => {
+    setTab(type === 'article' ? 'articles' : 'promos');
+    setEditItem(item);
+    if (type === 'article') {
+      setFormData({ ...formData, title: item.title, category: item.category, content: item.content });
+    } else {
+      setFormData({ 
+        ...formData, 
+        title: item.title, 
+        code: item.code, 
+        discount_percentage: item.discount_percentage, 
+        valid_from: item.valid_from, 
+        valid_until: item.valid_until,
+        description: item.description || ''
+      });
+    }
+    setShowModal(true);
+  };
+
+  const handleSave = async () => {
+    setSaving(true);
     try {
-      await api.delete(`/admin/articles/${id}`);
-      mutateArticles();
-    } catch (e) {
-      alert('Failed to delete article');
+      if (tab === 'articles') {
+        if (editItem) {
+          await api.put(`/admin/articles/${editItem.id}`, formData);
+        } else {
+          await api.post('/admin/articles', formData);
+        }
+        mutateArticles();
+      } else {
+        if (editItem) {
+          await api.put(`/admin/promos/${editItem.id}`, formData);
+        } else {
+          await api.post('/admin/promos', formData);
+        }
+        mutatePromos();
+      }
+      setShowModal(false);
+      resetForm();
+    } catch (e: any) {
+      alert(e.response?.data?.message || 'Gagal menyimpan konten');
+    } finally {
+      setSaving(false);
     }
   };
 
-  const handleDeletePromo = async (id: string) => {
-    if (!confirm('Are you sure you want to delete this promo?')) return;
+  const executeDelete = async () => {
+    setIsDeleting(true);
     try {
-      await api.delete(`/admin/promos/${id}`);
-      mutatePromos();
+      if (deleteConfirm.type === 'article') {
+        await api.delete(`/admin/articles/${deleteConfirm.id}`);
+        mutateArticles();
+      } else {
+        await api.delete(`/admin/promos/${deleteConfirm.id}`);
+        mutatePromos();
+      }
+      setDeleteConfirm({ ...deleteConfirm, isOpen: false });
     } catch (e) {
-      alert('Failed to delete promo');
+      alert('Gagal menghapus konten');
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -77,8 +155,8 @@ export default function AdminContentPage() {
                         <td style={{ color: 'var(--text-tertiary)' }}>{formatDate(a.published_at)}</td>
                         <td>
                           <div style={{ display: 'flex', gap: 'var(--space-2)' }}>
-                            <Button variant="ghost" size="sm" icon={<Edit2 size={14} />} disabled />
-                            <Button variant="ghost" size="sm" icon={<Trash2 size={14} />} onClick={() => handleDeleteArticle(a.id)} />
+                            <Button variant="ghost" size="sm" icon={<Edit2 size={14} />} onClick={() => openEdit(a, 'article')} />
+                            <Button variant="ghost" size="sm" icon={<Trash2 size={14} />} onClick={() => setDeleteConfirm({ isOpen: true, id: a.id, title: a.title, type: 'article' })} />
                           </div>
                         </td>
                       </tr>
@@ -114,8 +192,8 @@ export default function AdminContentPage() {
                           <td><span className={`${styles.badge} ${isExpired ? styles.badgeDanger : daysLeft <= 7 ? styles.badgeWarning : styles.badgeSuccess}`}>{isExpired ? 'Expired' : `${daysLeft} days`}</span></td>
                           <td>
                             <div style={{ display: 'flex', gap: 'var(--space-2)' }}>
-                              <Button variant="ghost" size="sm" icon={<Edit2 size={14} />} disabled />
-                              <Button variant="ghost" size="sm" icon={<Trash2 size={14} />} onClick={() => handleDeletePromo(p.id)} />
+                              <Button variant="ghost" size="sm" icon={<Edit2 size={14} />} onClick={() => openEdit(p, 'promo')} />
+                              <Button variant="ghost" size="sm" icon={<Trash2 size={14} />} onClick={() => setDeleteConfirm({ isOpen: true, id: p.id, title: p.title, type: 'promo' })} />
                             </div>
                           </td>
                         </tr>
@@ -131,38 +209,49 @@ export default function AdminContentPage() {
           </div>
         )}
 
-        {/* Form Modals (UI only for now) */}
-        <Modal isOpen={showModal} onClose={() => setShowModal(false)} title={tab === 'articles' ? d.addArticle : d.addPromo} size="lg">
+        {/* Form Modals */}
+        <Modal isOpen={showModal} onClose={() => { setShowModal(false); resetForm(); }} title={editItem ? 'Edit Konten' : (tab === 'articles' ? d.addArticle : d.addPromo)} size="lg">
           <div className={styles.formGrid}>
             {tab === 'articles' ? (
               <>
-                <div className={`${styles.formGroup} ${styles.formFull}`}><Input label="Title" placeholder="Article title" /></div>
+                <div className={`${styles.formGroup} ${styles.formFull}`}><Input label="Title" placeholder="Article title" value={formData.title} onChange={e => setFormData({...formData, title: e.target.value})} /></div>
                 <div className={styles.formGroup}>
                   <label style={{ fontSize: 'var(--text-sm)', fontWeight: 600 }}>Category</label>
-                  <select style={{ padding: 'var(--space-3)', border: '2px solid var(--border-light)', borderRadius: 'var(--radius-md)', background: 'var(--bg-primary)', color: 'var(--text-primary)' }}>
-                    <option>Kardiologi</option><option>Pediatri</option><option>Penyakit Dalam</option><option>Kesehatan Jiwa</option>
+                  <select value={formData.category} onChange={e => setFormData({...formData, category: e.target.value})} style={{ padding: 'var(--space-3)', border: '2px solid var(--border-light)', borderRadius: 'var(--radius-md)', background: 'var(--bg-primary)', color: 'var(--text-primary)', width: '100%' }}>
+                    <option value="Kardiologi">Kardiologi</option><option value="Pediatri">Pediatri</option><option value="Penyakit Dalam">Penyakit Dalam</option><option value="Kesehatan Jiwa">Kesehatan Jiwa</option><option value="Gizi">Gizi</option>
                   </select>
                 </div>
                 <div className={`${styles.formGroup} ${styles.formFull}`}>
                   <label style={{ fontSize: 'var(--text-sm)', fontWeight: 600 }}>Content</label>
-                  <textarea style={{ width: '100%', minHeight: 120, padding: 'var(--space-3)', border: '2px solid var(--border-light)', borderRadius: 'var(--radius-md)', background: 'var(--bg-primary)', color: 'var(--text-primary)', fontSize: 'var(--text-sm)', resize: 'vertical' }} placeholder="Write article content..." />
+                  <textarea value={formData.content} onChange={e => setFormData({...formData, content: e.target.value})} style={{ width: '100%', minHeight: 180, padding: 'var(--space-3)', border: '2px solid var(--border-light)', borderRadius: 'var(--radius-md)', background: 'var(--bg-primary)', color: 'var(--text-primary)', fontSize: 'var(--text-sm)', resize: 'vertical' }} placeholder="Write article content..." />
                 </div>
               </>
             ) : (
               <>
-                <div className={`${styles.formGroup} ${styles.formFull}`}><Input label="Title" placeholder="Promo title" /></div>
-                <div className={styles.formGroup}><Input label="Discount (%)" type="number" placeholder="30" /></div>
-                <div className={styles.formGroup}><Input label="Promo Code" placeholder="PROMO30" /></div>
-                <div className={styles.formGroup}><Input label="Valid Until" type="date" /></div>
-                <div className={`${styles.formGroup} ${styles.formFull}`}><Input label="Description" placeholder="Promo description..." /></div>
+                <div className={`${styles.formGroup} ${styles.formFull}`}><Input label="Title" placeholder="Promo title" value={formData.title} onChange={e => setFormData({...formData, title: e.target.value})} /></div>
+                <div className={styles.formGroup}><Input label="Discount (%)" type="number" placeholder="30" value={formData.discount_percentage} onChange={e => setFormData({...formData, discount_percentage: e.target.value})} /></div>
+                <div className={styles.formGroup}><Input label="Promo Code" placeholder="PROMO30" value={formData.code} onChange={e => setFormData({...formData, code: e.target.value})} /></div>
+                <div className={styles.formGroup}><Input label="Valid Until" type="date" value={formData.valid_until} onChange={e => setFormData({...formData, valid_until: e.target.value})} /></div>
+                <div className={`${styles.formGroup} ${styles.formFull}`}><Input label="Description" placeholder="Promo description..." value={formData.description} onChange={e => setFormData({...formData, description: e.target.value})} /></div>
               </>
             )}
           </div>
           <div className={styles.formActions}>
-            <Button variant="ghost" onClick={() => setShowModal(false)}>{t.common.cancel}</Button>
-            <Button variant="primary" onClick={() => setShowModal(false)} disabled>{t.common.save}</Button>
+            <Button variant="ghost" onClick={() => { setShowModal(false); resetForm(); }}>{t.common.cancel}</Button>
+            <Button variant="primary" onClick={handleSave} loading={saving}>{t.common.save}</Button>
           </div>
         </Modal>
+
+        <ConfirmModal 
+          isOpen={deleteConfirm.isOpen}
+          onClose={() => setDeleteConfirm({...deleteConfirm, isOpen: false})}
+          onConfirm={executeDelete}
+          loading={isDeleting}
+          title={`Hapus ${deleteConfirm.type === 'article' ? 'Artikel' : 'Promo'}`}
+          message={`Are you sure? Anda yakin ingin menghapus "${deleteConfirm.title}"? Tindakan ini tidak dapat dibatalkan.`}
+          confirmText="Ya, Hapus"
+          type="danger"
+        />
       </div>
     </DashboardLayout>
   );

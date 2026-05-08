@@ -8,8 +8,9 @@ import Button from '@/components/ui/Button/Button';
 import Input from '@/components/ui/Input/Input';
 import Modal from '@/components/ui/Modal/Modal';
 import { getInitials } from '@/lib/utils';
-import { Plus, Edit2, Trash2, Search, Star } from 'lucide-react';
+import { Plus, Edit2, Search, Star, ShieldAlert, ShieldCheck } from 'lucide-react';
 import { api } from '@/lib/api';
+import ConfirmModal from '@/components/ui/Modal/ConfirmModal';
 
 const fetcher = (url: string) => api.get(url).then((res) => res.data);
 
@@ -42,13 +43,27 @@ export default function AdminDoctorsPage() {
   const { data, mutate, isLoading } = useSWR(`/admin/doctors?search=${search}`, fetcher);
   const doctors = data?.data || [];
 
-  const handleDelete = async (doctorId: string) => {
-    if (!confirm('Are you sure you want to deactivate this doctor?')) return;
+  const [confirmState, setConfirmState] = useState<{isOpen: boolean, doctorId: string, status: boolean, name: string}>({
+    isOpen: false,
+    doctorId: '',
+    status: false,
+    name: ''
+  });
+
+  const handleToggleStatus = async (doctorId: string, currentStatus: boolean, name: string) => {
+    setConfirmState({ isOpen: true, doctorId, status: currentStatus, name });
+  };
+
+  const executeToggle = async () => {
+    setSavingEdit(true);
     try {
-      await api.delete(`/admin/doctors/${doctorId}`);
+      await api.put(`/admin/doctors/${confirmState.doctorId}/toggle`);
       mutate();
+      setConfirmState({ ...confirmState, isOpen: false });
     } catch (err: any) {
-      alert(err.response?.data?.message || 'Failed to deactivate doctor');
+      alert(err.response?.data?.message || 'Failed to update doctor status');
+    } finally {
+      setSavingEdit(false);
     }
   };
 
@@ -140,7 +155,7 @@ export default function AdminDoctorsPage() {
                       <td>
                         <div style={{ display: 'flex', gap: 'var(--space-2)' }}>
                           <Button variant="ghost" size="sm" icon={<Edit2 size={14} />} onClick={() => openEditModal(doc)} />
-                          <Button variant="ghost" size="sm" icon={<Trash2 size={14} />} onClick={() => handleDelete(doc.id)} disabled={!doc.is_active} />
+                          <Button variant="ghost" size="sm" icon={doc.is_active ? <ShieldAlert size={14} color="var(--danger-500)" /> : <ShieldCheck size={14} color="var(--success-500)" />} onClick={() => handleToggleStatus(doc.id, doc.is_active, doc.user?.full_name)} />
                         </div>
                       </td>
                     </tr>
@@ -223,6 +238,17 @@ export default function AdminDoctorsPage() {
             <Button variant="primary" loading={savingEdit} onClick={handleEditSubmit}>{t.common.save}</Button>
           </div>
         </Modal>
+
+        <ConfirmModal 
+          isOpen={confirmState.isOpen}
+          onClose={() => setConfirmState({...confirmState, isOpen: false})}
+          onConfirm={executeToggle}
+          loading={savingEdit}
+          title="Konfirmasi Status Dokter"
+          message={`Are you sure? Anda yakin ingin ${confirmState.status ? 'menonaktifkan' : 'mengaktifkan'} dokter ${confirmState.name}?`}
+          confirmText={confirmState.status ? 'Nonaktifkan' : 'Aktifkan'}
+          type={confirmState.status ? 'danger' : 'info'}
+        />
 
       </div>
     </DashboardLayout>

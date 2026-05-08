@@ -54,6 +54,7 @@ Route::middleware(['auth:sanctum', 'role:patient'])->prefix('patient')->group(fu
     Route::post('bookings', [PatientController::class, 'createBooking']);
     Route::get('bookings/{booking}', [PatientController::class, 'getBooking']);
     Route::post('bookings/{booking}/pay', [PatientController::class, 'initiatePayment']);
+    Route::get('bookings/{booking}/check-status', [PatientController::class, 'checkPaymentStatus']);
     Route::delete('bookings/{booking}', [PatientController::class, 'cancelBooking']);
     Route::post('bookings/{booking}/review', [PatientController::class, 'submitReview']);
 
@@ -119,7 +120,7 @@ Route::middleware(['auth:sanctum', 'role:admin'])->prefix('admin')->group(functi
     Route::get('doctors', [AdminController::class, 'doctors']);
     Route::post('doctors', [AdminController::class, 'storeDoctor']);
     Route::put('doctors/{doctor}', [AdminController::class, 'updateDoctor']);
-    Route::delete('doctors/{doctor}', [AdminController::class, 'deleteDoctor']);
+    Route::put('doctors/{doctor}/toggle', [AdminController::class, 'toggleDoctor']);
 
     // Users
     Route::get('users', [AdminController::class, 'users']);
@@ -127,6 +128,7 @@ Route::middleware(['auth:sanctum', 'role:admin'])->prefix('admin')->group(functi
 
     // Transactions
     Route::get('transactions', [AdminController::class, 'transactions']);
+    Route::get('doctor-revenue', [AdminController::class, 'doctorRevenue']);
 
     // Articles
     Route::get('articles', [AdminController::class, 'articles']);
@@ -137,5 +139,6 @@ Route::middleware(['auth:sanctum', 'role:admin'])->prefix('admin')->group(functi
     // Promos
     Route::get('promos', [AdminController::class, 'promos']);
     Route::post('promos', [AdminController::class, 'storePromo']);
+    Route::put('promos/{promo}', [AdminController::class, 'updatePromo']);
     Route::delete('promos/{promo}', [AdminController::class, 'deletePromo']);
 });

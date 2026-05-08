@@ -140,9 +140,16 @@ class DoctorController extends Controller
             return response()->json(['message' => 'Doctor profile not found'], 404);
         }
 
+        $date = $request->query('date', today()->toDateString());
+
         $queue = \App\Models\Booking::with(['patient'])
             ->where('doctor_id', $doctor->id)
-            ->whereDate('appointment_time', today())
+            ->whereDate('appointment_time', $date)
+            ->where(function($q) {
+                $q->where('payment_status', 'paid')
+                  ->orWhere('booking_status', 'confirmed')
+                  ->orWhere('booking_status', 'in_progress');
+            })
             ->orderBy('appointment_time')
             ->get()
             ->map(fn($b) => [
@@ -152,9 +159,14 @@ class DoctorController extends Controller
                 'complaint' => $b->complaint,
                 'appointment_time' => $b->appointment_time->format('H:i'),
                 'booking_status' => $b->booking_status,
+                'payment_status' => $b->payment_status,
             ]);
 
-        return response()->json(['queue' => $queue]);
+        return response()->json([
+            'queue' => $queue,
+            'date' => $date,
+            'server_time' => now()->toDateTimeString()
+        ]);
     }
 
     /**
